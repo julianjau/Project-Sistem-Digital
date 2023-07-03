@@ -1,0 +1,102 @@
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+#include <DHT.h>
+
+char auth[] = "JtCfNN37JwhvbtpkUGZQ9FqgXOj4FdNY";
+char ssid[] = "Tidak Terdeteksi";
+char pass[] = "gaadakuotayaa";
+
+#define RELAY_PIN D1
+#define DHTPIN D2
+#define DHTTYPE DHT11
+
+DHT dht(DHTPIN, DHTTYPE);
+BlynkTimer timer;
+
+bool isAutomaticMode = true;
+
+void checkTemperature()
+{
+  float temperature = dht.readTemperature(); // Membaca suhu dari sensor DHT11
+  float humidity = dht.readHumidity();
+
+  if (isnan(temperature) || isnan(humidity)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+
+  Blynk.virtualWrite(V1, temperature); // Mengirim data suhu ke Widget di Blynk
+  Blynk.virtualWrite(V5, humidity);
+
+  if (isAutomaticMode)
+  {
+    if (temperature > 33)
+    {
+      // Menyalakan kipas jika suhu di atas 30 derajat
+      digitalWrite(RELAY_PIN, LOW);
+    }
+    else
+    {
+      // Mematikan kipas jika suhu di bawah atau sama dengan 33 derajat
+      digitalWrite(RELAY_PIN, HIGH);
+    }
+  }
+  else
+  {
+    // Mode manual, tidak ada pengendalian otomatis
+    // Kipas tetap dalam keadaan saat terakhir
+  }
+
+  Blynk.virtualWrite(V2, digitalRead(RELAY_PIN) ? "Kipas = Off" : "Kipas = On"); // Mengirim status kipas ke Widget LED di Blynk
+  Blynk.virtualWrite(V6, isAutomaticMode ? "Auto = On" : "Auto = Off"); // Mengirim status mode otomatis ke Widget LED di Blynk
+}
+
+BLYNK_WRITE(V3) // Membaca nilai tombol mode otomatis atau manual di Blynk
+{
+  isAutomaticMode = param.asInt();
+
+  if (!isAutomaticMode)
+  {
+    digitalWrite(RELAY_PIN, LOW); // Mematikan kipas saat beralih ke mode manual
+  }
+  else if (isAutomaticMode && dht.readTemperature() <= 33)
+  {
+    // Mematikan kipas jika beralih ke mode otomatis ketika suhu di bawah atau sama dengan 30 derajat
+    digitalWrite(RELAY_PIN, HIGH);
+  }
+
+  Blynk.virtualWrite(V3, isAutomaticMode ? "Auto = Off" : "Auto = On"); // Mengirim status mode otomatis ke Widget LED di Blynk
+}
+
+BLYNK_WRITE(V4) // Membaca tombol kipas hidup atau mati di Blynk (hanya bekerja dalam mode manual)
+{
+  if (!isAutomaticMode)
+  {
+    digitalWrite(RELAY_PIN, param.asInt());
+  }
+
+  Blynk.virtualWrite(V2, digitalRead(RELAY_PIN) ? "Kipas = Off" : "Kipas = On"); // Mengirim status kipas ke Widget LED di Blynk
+}
+
+void setup()
+{
+  Serial.begin(9600);
+  Blynk.begin(auth, ssid, pass);
+
+  dht.begin();
+
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, HIGH);
+
+  timer.setInterval(1000L, checkTemperature);
+}
+
+void loop()
+{
+  Blynk.run();
+  timer.run();
+}
+
+
+
+// pada koding ini menggunakan Blynk untuk monitoring Suhu, kelembabab, mengatur mode otomatis, dan manual untuk mengontrol on off kipas
