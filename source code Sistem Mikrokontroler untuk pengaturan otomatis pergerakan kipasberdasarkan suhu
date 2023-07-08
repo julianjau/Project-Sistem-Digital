@@ -97,6 +97,3 @@ void loop()
   timer.run();
 }
 
-
-
-// pada koding ini menggunakan Blynk untuk monitoring Suhu, kelembabab, mengatur mode otomatis, dan manual untuk mengontrol on off kipas
